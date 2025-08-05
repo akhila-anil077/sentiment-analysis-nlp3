@@ -31,7 +31,7 @@ def preprocess(text):
 @st.cache_resource
 def load_model():
     df = pd.read_csv("amazon_product_reviews.csv") 
-    df = df[['reviews.text', 'sentiment']].dropna()
+    df = df[['reviews', 'sentiment']].dropna()
     df.columns = ['review', 'sentiment']
     df['cleaned_review'] = df['review'].apply(preprocess)
 
