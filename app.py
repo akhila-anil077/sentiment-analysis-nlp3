@@ -34,7 +34,7 @@ model, tfidf, le = load_model()
 
 # Streamlit Interface
 st.title("Sentiment Analysis for Product Reviews")
-st.write("Analyze single reviews or upload a batch to get sentiment breakdown.")
+st.write("Analyze single reviews")
 
 # Text Input
 text_input = st.text_area("Enter a review:", "")
