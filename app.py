@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import re
@@ -6,8 +7,9 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 import pickle
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import LabelEncoder
 
 # Download NLTK resources
 nltk.download('stopwords')
@@ -19,26 +21,38 @@ lemmatizer = WordNetLemmatizer()
 
 def preprocess(text):
     text = str(text).lower()
-    text = re.sub(r"http\S+|www\S+", '', text)  # remove links
-    text = text.translate(str.maketrans('', '', string.punctuation))  # remove punctuation
+    text = re.sub(r"http\S+|www\S+", '', text)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    
+    # Handle negation
     tokens = text.split()
-    tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
+    negation_handled_tokens = []
+    i = 0
+    while i < len(tokens):
+        if tokens[i] == 'not' and i + 1 < len(tokens):
+            negation_handled_tokens.append('not_' + tokens[i+1])
+            i += 2
+        else:
+            negation_handled_tokens.append(tokens[i])
+            i += 1
+            
+    tokens = [lemmatizer.lemmatize(word) for word in negation_handled_tokens if word not in stop_words]
     return ' '.join(tokens)
 
-# Load model, vectorizer, and label encoder
+# Load model pipeline and label encoder
 @st.cache_resource
 def load_model():
     try:
         with open("model.pkl", "rb") as f:
-            model, tfidf, le = pickle.load(f)
-        return model, tfidf, le
+            pipeline, le = pickle.load(f)
+        return pipeline, le
     except FileNotFoundError:
         st.error("model.pkl not found. Please ensure the trained model file is in the same directory.")
-        return None, None, None
+        return None, None
 
-model, tfidf, le = load_model()
+pipeline, le = load_model()
 
-if model is not None:
+if pipeline is not None:
     # Streamlit Interface
     st.title("Sentiment Analysis for Product Reviews")
     st.write("Analyze single reviews")
@@ -51,8 +65,7 @@ if model is not None:
             st.warning("Please enter some text.")
         else:
             cleaned = preprocess(text_input)
-            vec = tfidf.transform([cleaned])
-            pred = model.predict(vec)
+            pred = pipeline.predict([cleaned])
             label = le.inverse_transform(pred)
             st.success(f"Predicted Sentiment: **{label[0].capitalize()}**")
 
@@ -65,8 +78,7 @@ if model is not None:
             st.error("CSV must contain a 'review' column.")
         else:
             df_input['cleaned'] = df_input['review'].astype(str).apply(preprocess)
-            vecs = tfidf.transform(df_input['cleaned'])
-            preds = model.predict(vecs)
+            preds = pipeline.predict(df_input['cleaned'])
             df_input['predicted_sentiment'] = le.inverse_transform(preds)
 
             st.subheader("Sentiment Distribution")
