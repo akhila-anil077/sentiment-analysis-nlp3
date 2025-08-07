@@ -12,8 +12,8 @@ import pickle
 nltk.download('stopwords')
 nltk.download('wordnet')
 
-# Preprocessing
-stop_words = set(stopwords.words('english'))
+# ✅ Keep negations
+stop_words = set(stopwords.words('english')) - {'not', 'no', 'nor', 'never'}
 lemmatizer = WordNetLemmatizer()
 
 def preprocess(text):
@@ -32,9 +32,10 @@ def load_model():
 
 model, tfidf, le = load_model()
 
-# Streamlit Interface
+# Streamlit UI
 st.title("Sentiment Analysis for Product Reviews")
-st.write("Analyze single reviews")
+st.write("Analyze single or multiple reviews (one per line)")
+st.caption("Enter each review on a new line.")
 
 # Text Input
 text_input = st.text_area("Enter a review:", "")
@@ -43,11 +44,20 @@ if st.button("Predict Sentiment"):
     if text_input.strip() == "":
         st.warning("Please enter some text.")
     else:
-        cleaned = preprocess(text_input)
-        vec = tfidf.transform([cleaned])
-        pred = model.predict(vec)
-        label = le.inverse_transform(pred)
-        st.success(f"Predicted Sentiment: **{label[0].capitalize()}**")
+        lines = text_input.strip().split("\n")
+        results = []
+
+        for line in lines:
+            if line.strip():
+                cleaned = preprocess(line)
+                vec = tfidf.transform([cleaned])
+                pred = model.predict(vec)
+                label = le.inverse_transform(pred)
+                results.append((line.strip(), label[0].capitalize()))
+
+        for review, sentiment in results:
+            st.write(f"**Review:** {review}")
+            st.success(f"Predicted Sentiment: **{sentiment}**")
 
 # File Upload
 uploaded_file = st.file_uploader("Or upload a CSV file with a 'review' column", type=["csv"])
@@ -68,7 +78,6 @@ if uploaded_file:
         st.subheader("Sample Predictions")
         st.dataframe(df_input[['review', 'predicted_sentiment']].head(10))
 
-        # WordClouds
         st.subheader("WordClouds by Sentiment")
         for sentiment in df_input['predicted_sentiment'].unique():
             text = " ".join(df_input[df_input['predicted_sentiment'] == sentiment]['cleaned'])
